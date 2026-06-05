@@ -2,7 +2,7 @@ import Button from "./ui/Button";
 
 export default function Header() {
     return (
-        <header className="min-h-screen bg-[url('/image/barbearia.png')] bg-cover bg-center flex items-center">
+        <header id="inicio" className="min-h-screen bg-[url('/image/barbearia.png')] bg-cover bg-center flex items-center">
 
             <div className="ml-54 px-6">
 
