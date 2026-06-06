@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import type { Appointment } from "../types/appointment";
 import AdminHeader from "../components/AdminHeader";
 import { API_URL } from "../services/api";
+const BARBERSHOP_SLUG = "toid";
 
 type Filter = "today" | "tomorrow" | "week" | "month" | "all";
 
@@ -11,12 +12,26 @@ export default function Admin() {
   const [filter, setFilter] = useState<Filter>("today");
 
   useEffect(() => {
-    const savedAppointments = localStorage.getItem("appointments");
+  async function loadAppointments() {
+    try {
+      const response = await fetch(
+        `${API_URL}/barbershops/${BARBERSHOP_SLUG}/appointments`
+      );
 
-    if (savedAppointments) {
-      setAppointments(JSON.parse(savedAppointments));
+      if (!response.ok) {
+        throw new Error("Erro ao carregar agendamentos");
+      }
+
+      const data = await response.json();
+
+      setAppointments(data);
+    } catch (error) {
+      console.error("Erro ao buscar agendamentos:", error);
     }
-  }, []);
+  }
+
+  loadAppointments();
+}, []);
 
   function getDateByOffset(days: number) {
     const date = new Date();

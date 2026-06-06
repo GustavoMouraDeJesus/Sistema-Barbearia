@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import AdminHeader from "../components/AdminHeader";
+import { API_URL } from "../services/api";
+const BARBERSHOP_SLUG = "toid";
 
 import type { Appointment, AppointmentStatus } from "../types/appointment";
 
@@ -8,20 +10,26 @@ export default function AdminDia() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   useEffect(() => {
-    const savedAppointments = localStorage.getItem("appointments");
+  async function loadAppointments() {
+    try {
+      const response = await fetch(
+  `${API_URL}/barbershops/${BARBERSHOP_SLUG}/appointments`
+);
 
-    if (savedAppointments) {
-      const parsedAppointments = JSON.parse(savedAppointments) as Appointment[];
+      if (!response.ok) {
+        throw new Error("Erro ao carregar agendamentos");
+      }
 
-      const normalizedAppointments = parsedAppointments.map((appointment) => ({
-        ...appointment,
-        status: appointment.status ?? "pending",
-      }));
+      const data = await response.json();
 
-      setAppointments(normalizedAppointments);
-      localStorage.setItem("appointments", JSON.stringify(normalizedAppointments));
+      setAppointments(data);
+    } catch (error) {
+      console.error("Erro ao buscar agendamentos:", error);
     }
-  }, []);
+  }
+
+  loadAppointments();
+}, []);
 
   function getTodayDate() {
     const today = new Date();
@@ -40,19 +48,39 @@ export default function AdminDia() {
     });
   }
 
-  function updateAppointmentStatus(
-    appointmentId: string,
-    status: AppointmentStatus
-  ) {
-    const updatedAppointments = appointments.map((appointment) =>
-      appointment.id === appointmentId
-        ? { ...appointment, status }
-        : appointment
-    );
-
-    setAppointments(updatedAppointments);
-    localStorage.setItem("appointments", JSON.stringify(updatedAppointments));
+  async function updateAppointmentStatus(
+  appointmentId: string,
+  status: AppointmentStatus
+) {
+  try {
+    const response = await fetch(
+  `${API_URL}/barbershops/${BARBERSHOP_SLUG}/appointments/${appointmentId}/status`,
+  {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ status }),
   }
+);
+
+    if (!response.ok) {
+      alert("Erro ao atualizar status do agendamento.");
+      return;
+    }
+
+    const updatedAppointment = await response.json();
+
+    setAppointments((prevAppointments) =>
+      prevAppointments.map((appointment) =>
+        appointment.id === appointmentId ? updatedAppointment : appointment
+      )
+    );
+  } catch (error) {
+    console.error("Erro ao atualizar status:", error);
+    alert("Não foi possível conectar com o servidor.");
+  }
+}
 
   function handleChangeStatus(
   appointmentId: string,

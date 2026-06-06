@@ -31,8 +31,8 @@ export default function Agendamentos() {
   useEffect(() => {
     async function loadData() {
       try {
-        const servicesResponse = await fetch(`${API_URL}/services`);
-        const professionalsResponse = await fetch(`${API_URL}/professionals`);
+        const servicesResponse = await fetch(`${API_URL}/barbershops/toid/services`);
+        const professionalsResponse = await fetch(`${API_URL}/barbershops/toid/professionals`);
 
         const servicesData = await servicesResponse.json();
         const professionalsData = await professionalsResponse.json();
@@ -85,19 +85,19 @@ export default function Agendamentos() {
     try {
       setLoading(true);
 
-      const response = await fetch(`${API_URL}/appointments`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          clientName: formData.clientName,
-          serviceId: Number(formData.serviceId),
-          professionalId: Number(formData.professionalId),
-          date: formData.date,
-          time: formData.time,
-        }),
-      });
+      const response = await fetch(`${API_URL}/barbershops/toid/appointments`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    clientName: formData.clientName,
+    serviceId: Number(formData.serviceId),
+    professionalId: Number(formData.professionalId),
+    date: formData.date,
+    time: formData.time,
+  }),
+});
 
       if (!response.ok) {
         alert("Erro ao criar agendamento.");
