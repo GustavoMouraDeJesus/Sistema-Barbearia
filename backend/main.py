@@ -4,11 +4,21 @@ from typing import Literal
 from fastapi.middleware.cors import CORSMiddleware
 from uuid import uuid4
 from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
+from jose import jwt
+from passlib.context import CryptContext
 
 from database import Base, engine, get_db, SessionLocal
 import models
 
+
 app = FastAPI()
+
+SECRET_KEY = "troque-essa-chave-depois"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440
+
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 Base.metadata.create_all(bind=engine)
 
@@ -27,6 +37,17 @@ app.add_middleware(
 # =========================
 # SCHEMAS
 # =========================
+
+class AdminCreate(BaseModel):
+    name: str
+    email: str
+    password: str
+    barbershopSlug: str
+
+
+class AdminLogin(BaseModel):
+    email: str
+    password: str
 
 class AppointmentCreate(BaseModel):
     clientName: str
@@ -201,10 +222,105 @@ def seed_initial_data():
 
 seed_initial_data()
 
+def hash_password(password: str):
+    return pwd_context.hash(password)
+
+
+def verify_password(password: str, password_hash: str):
+    return pwd_context.verify(password, password_hash)
+
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+
+    to_encode.update({"exp": expire})
+
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
 
 # =========================
 # ROTAS GERAIS
 # =========================
+
+@app.post("/auth/register")
+def register_admin(admin: AdminCreate, db: Session = Depends(get_db)):
+    barbershop = get_barbershop_by_slug(db, admin.barbershopSlug)
+
+    existing_admin = (
+        db.query(models.Admin)
+        .filter(models.Admin.email == admin.email)
+        .first()
+    )
+
+    if existing_admin:
+        raise HTTPException(
+            status_code=400,
+            detail="Já existe um admin cadastrado com esse email"
+        )
+
+    new_admin = models.Admin(
+        id=str(uuid4()),
+        name=admin.name,
+        email=admin.email,
+        password_hash=hash_password(admin.password),
+        barbershop_id=barbershop.id,
+    )
+
+    db.add(new_admin)
+    db.commit()
+    db.refresh(new_admin)
+
+    return {
+        "id": new_admin.id,
+        "name": new_admin.name,
+        "email": new_admin.email,
+        "barbershopId": new_admin.barbershop_id,
+    }
+
+
+@app.post("/auth/login")
+def login_admin(admin: AdminLogin, db: Session = Depends(get_db)):
+    found_admin = (
+        db.query(models.Admin)
+        .filter(models.Admin.email == admin.email)
+        .first()
+    )
+
+    if not found_admin:
+        raise HTTPException(
+            status_code=401,
+            detail="Email ou senha inválidos"
+        )
+
+    password_is_valid = verify_password(
+        admin.password,
+        found_admin.password_hash
+    )
+
+    if not password_is_valid:
+        raise HTTPException(
+            status_code=401,
+            detail="Email ou senha inválidos"
+        )
+
+    access_token = create_access_token(
+        {
+            "sub": found_admin.id,
+            "barbershopId": found_admin.barbershop_id,
+        }
+    )
+
+    return {
+        "accessToken": access_token,
+        "admin": {
+            "id": found_admin.id,
+            "name": found_admin.name,
+            "email": found_admin.email,
+            "barbershopId": found_admin.barbershop_id,
+        }
+    }
 
 @app.get("/")
 def home():

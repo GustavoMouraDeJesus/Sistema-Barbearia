@@ -42,3 +42,13 @@ class Appointment(Base):
     time = Column(String, nullable=False)
     price = Column(Float, nullable=False)
     status = Column(String, nullable=False, default="pending")
+
+
+class Admin(Base):
+    __tablename__ = "admins"
+
+    id = Column(String, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    email = Column(String, unique=True, nullable=False, index=True)
+    password_hash = Column(String, nullable=False)
+    barbershop_id = Column(String, ForeignKey("barbershops.id"), nullable=False)
