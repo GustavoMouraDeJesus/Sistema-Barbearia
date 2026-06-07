@@ -1,6 +1,6 @@
 import { Routes, Route, useLocation } from "react-router-dom";
 
-import Navbar from "./components/Navbar";
+import NavBar from "./components/NavBar";
 import Home from "./pages/Home";
 import Agendamentos from "./pages/Agedamentos";
 import Admin from "./pages/Admin";
@@ -13,7 +13,7 @@ function App() {
 
   return (
     <>
-      {!isAdminPage && <Navbar />}
+      {!isAdminPage && <NavBar />}
 
       <Routes>
         <Route path="/" element={<Home />} />
