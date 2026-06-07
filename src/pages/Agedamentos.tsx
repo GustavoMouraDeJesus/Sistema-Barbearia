@@ -5,6 +5,8 @@ import { API_URL } from "../services/api";
 import type { Service } from "../types/Service";
 import type { Professional } from "../types/Professional";
 
+const BARBERSHOP_SLUG = "toid";
+
 type AppointmentForm = {
   clientName: string;
   serviceId: string;
@@ -31,8 +33,13 @@ export default function Agendamentos() {
   useEffect(() => {
     async function loadData() {
       try {
-        const servicesResponse = await fetch(`${API_URL}/barbershops/toid/services`);
-        const professionalsResponse = await fetch(`${API_URL}/barbershops/toid/professionals`);
+        const servicesResponse = await fetch(
+  `${API_URL}/barbershops/${BARBERSHOP_SLUG}/services`
+);
+
+const professionalsResponse = await fetch(
+  `${API_URL}/barbershops/${BARBERSHOP_SLUG}/professionals`
+);
 
         const servicesData = await servicesResponse.json();
         const professionalsData = await professionalsResponse.json();
@@ -85,19 +92,22 @@ export default function Agendamentos() {
     try {
       setLoading(true);
 
-      const response = await fetch(`${API_URL}/barbershops/toid/appointments`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    clientName: formData.clientName,
-    serviceId: Number(formData.serviceId),
-    professionalId: Number(formData.professionalId),
-    date: formData.date,
-    time: formData.time,
-  }),
-});
+const response = await fetch(
+  `${API_URL}/barbershops/${BARBERSHOP_SLUG}/appointments`,
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      clientName: formData.clientName,
+      serviceId: Number(formData.serviceId),
+      professionalId: Number(formData.professionalId),
+      date: formData.date,
+      time: formData.time,
+    }),
+  }
+);
 
       if (!response.ok) {
         alert("Erro ao criar agendamento.");
