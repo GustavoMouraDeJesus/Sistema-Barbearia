@@ -83,6 +83,20 @@ export default function Admin() {
     getStoredBarbershopName()
   );
 
+  const publicBookingLink = barbershopSlug
+    ? `${window.location.origin}/${barbershopSlug}/agendamento`
+    : "";
+
+  async function handleCopyBookingLink() {
+    if (!publicBookingLink) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(publicBookingLink);
+
+    alert("Link de agendamento copiado com sucesso!");
+  }
+
   useEffect(() => {
     async function loadAppointments() {
       if (!barbershopSlug) {
@@ -259,18 +273,68 @@ export default function Admin() {
               </h1>
 
               <p className="text-zinc-400 mt-3">
-                Acompanhe os agendamentos e o faturamento da
-                sua barbearia.
+                Acompanhe os agendamentos e o faturamento da sua barbearia.
               </p>
             </div>
 
-            <Link
-              to="/admin/dia"
-              className="bg-white text-black px-5 py-3 rounded-lg font-semibold hover:scale-105 transition w-fit"
-            >
-              Painel do Dia
-            </Link>
+            <div className="flex flex-wrap gap-3">
+              <Link
+  to="/admin/funcionamento"
+  className="bg-zinc-900 text-white border border-zinc-700 px-5 py-3 rounded-lg font-semibold hover:bg-zinc-800 transition w-fit"
+>
+  Horário de Funcionamento
+</Link>
+              <Link
+                to="/admin/servicos"
+                className="bg-zinc-900 text-white border border-zinc-700 px-5 py-3 rounded-lg font-semibold hover:bg-zinc-800 transition w-fit"
+              >
+                Gerenciar Serviços
+              </Link>
+
+              <Link
+                to="/admin/funcionarios"
+                className="bg-zinc-900 text-white border border-zinc-700 px-5 py-3 rounded-lg font-semibold hover:bg-zinc-800 transition w-fit"
+              >
+                Gerenciar Funcionários
+              </Link>
+
+              <Link
+                to="/admin/dia"
+                className="bg-white text-black px-5 py-3 rounded-lg font-semibold hover:scale-105 transition w-fit"
+              >
+                Painel do Dia
+              </Link>
+            </div>
           </div>
+
+          {publicBookingLink && (
+            <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 mb-8">
+              <h2 className="text-2xl font-bold">
+                Link de agendamento da barbearia
+              </h2>
+
+              <p className="text-zinc-400 mt-2">
+                Envie este link para seus clientes fazerem agendamentos.
+              </p>
+
+              <div className="mt-5 flex flex-col md:flex-row gap-3">
+                <input
+                  type="text"
+                  value={publicBookingLink}
+                  readOnly
+                  className="flex-1 bg-black border border-zinc-800 rounded-lg px-4 py-3 text-zinc-300 outline-none"
+                />
+
+                <button
+                  type="button"
+                  onClick={handleCopyBookingLink}
+                  className="bg-white text-black px-5 py-3 rounded-lg font-semibold hover:scale-105 transition cursor-pointer"
+                >
+                  Copiar link
+                </button>
+              </div>
+            </div>
+          )}
 
           {errorMessage && (
             <div className="mb-8 bg-red-500/10 border border-red-500 text-red-400 rounded-xl p-4">
@@ -370,8 +434,7 @@ export default function Admin() {
                 </h2>
 
                 <p className="text-zinc-400 mt-2">
-                  Filtre os horários por hoje, amanhã, semana,
-                  mês ou todos.
+                  Filtre os horários por hoje, amanhã, semana, mês ou todos.
                 </p>
               </div>
 
@@ -463,48 +526,42 @@ export default function Admin() {
                   </thead>
 
                   <tbody>
-                    {sortedFilteredAppointments.map(
-                      (appointment) => (
-                        <tr
-                          key={appointment.id}
-                          className="border-t border-zinc-800 text-zinc-300"
-                        >
-                          <td className="p-4">
-                            {appointment.clientName}
-                          </td>
+                    {sortedFilteredAppointments.map((appointment) => (
+                      <tr
+                        key={appointment.id}
+                        className="border-t border-zinc-800 text-zinc-300"
+                      >
+                        <td className="p-4">
+                          {appointment.clientName}
+                        </td>
 
-                          <td className="p-4">
-                            {appointment.serviceName}
-                          </td>
+                        <td className="p-4">
+                          {appointment.serviceName}
+                        </td>
 
-                          <td className="p-4">
-                            {appointment.professionalName}
+                        <td className="p-4">
+                          {appointment.professionalName}
 
-                            <br />
+                          <br />
 
-                            <span className="text-sm text-zinc-500">
-                              {
-                                appointment.professionalSpecialty
-                              }
-                            </span>
-                          </td>
+                          <span className="text-sm text-zinc-500">
+                            {appointment.professionalSpecialty}
+                          </span>
+                        </td>
 
-                          <td className="p-4">
-                            {formatDate(appointment.date)}
-                          </td>
+                        <td className="p-4">
+                          {formatDate(appointment.date)}
+                        </td>
 
-                          <td className="p-4">
-                            {appointment.time}
-                          </td>
+                        <td className="p-4">
+                          {appointment.time}
+                        </td>
 
-                          <td className="p-4 font-semibold text-white">
-                            {formatCurrency(
-                              appointment.price
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    )}
+                        <td className="p-4 font-semibold text-white">
+                          {formatCurrency(appointment.price)}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>

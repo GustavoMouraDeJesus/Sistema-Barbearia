@@ -2,10 +2,10 @@ import re
 import unicodedata
 
 from datetime import datetime, timedelta, timezone
-from typing import Literal
+from typing import Literal, Optional
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
@@ -38,7 +38,6 @@ pwd_context = CryptContext(
 security = HTTPBearer()
 
 Base.metadata.create_all(bind=engine)
-
 
 app.add_middleware(
     CORSMiddleware,
@@ -76,12 +75,43 @@ class ServiceCreate(BaseModel):
     name: str = Field(min_length=2, max_length=100)
     price: float = Field(gt=0)
     description: str = Field(min_length=2, max_length=500)
+    durationMinutes: int = Field(default=30, ge=5, le=480)
 
 
 class ServiceUpdate(BaseModel):
     name: str = Field(min_length=2, max_length=100)
     price: float = Field(gt=0)
     description: str = Field(min_length=2, max_length=500)
+    durationMinutes: int = Field(default=30, ge=5, le=480)
+
+
+# ==================================================
+# SCHEMAS DE PROFISSIONAIS / FUNCIONÁRIOS
+# ==================================================
+
+class ProfessionalCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=100)
+    specialty: str = Field(min_length=2, max_length=100)
+
+
+class ProfessionalUpdate(BaseModel):
+    name: str = Field(min_length=2, max_length=100)
+    specialty: str = Field(min_length=2, max_length=100)
+
+
+# ==================================================
+# SCHEMAS DE FUNCIONAMENTO
+# ==================================================
+
+class BusinessHourUpdate(BaseModel):
+    weekday: int = Field(ge=0, le=6)
+    isOpen: bool
+    openTime: str
+    closeTime: str
+
+
+class BusinessHoursUpdate(BaseModel):
+    businessHours: list[BusinessHourUpdate]
 
 
 # ==================================================
@@ -119,6 +149,7 @@ def format_service(service: models.Service):
         "name": service.name,
         "price": service.price,
         "description": service.description,
+        "durationMinutes": service.duration_minutes,
     }
 
 
@@ -131,12 +162,26 @@ def format_professional(professional: models.Professional):
     }
 
 
+def format_business_hour(business_hour: models.BusinessHour):
+    return {
+        "id": business_hour.id,
+        "barbershopId": business_hour.barbershop_id,
+        "weekday": business_hour.weekday,
+        "isOpen": business_hour.is_open,
+        "openTime": business_hour.open_time,
+        "closeTime": business_hour.close_time,
+    }
+
+
 def format_appointment(appointment: models.Appointment):
     return {
         "id": appointment.id,
         "barbershopId": appointment.barbershop_id,
         "clientName": appointment.client_name,
+        "serviceId": appointment.service_id,
         "serviceName": appointment.service_name,
+        "serviceDurationMinutes": appointment.service_duration_minutes,
+        "professionalId": appointment.professional_id,
         "professionalName": appointment.professional_name,
         "professionalSpecialty": appointment.professional_specialty,
         "date": appointment.date,
@@ -144,6 +189,56 @@ def format_appointment(appointment: models.Appointment):
         "price": appointment.price,
         "status": appointment.status,
     }
+
+
+# ==================================================
+# FUNÇÕES DE VALIDAÇÃO
+# ==================================================
+
+def parse_date(date_value: str):
+    try:
+        return datetime.strptime(date_value, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Data inválida. Use o formato YYYY-MM-DD.",
+        )
+
+
+def parse_time(time_value: str):
+    try:
+        return datetime.strptime(time_value, "%H:%M").time()
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Horário inválido. Use o formato HH:MM.",
+        )
+
+
+def time_to_minutes(time_value: str):
+    parsed_time = parse_time(time_value)
+    return parsed_time.hour * 60 + parsed_time.minute
+
+
+def minutes_to_time(minutes: int):
+    hours = minutes // 60
+    remaining_minutes = minutes % 60
+    return f"{hours:02d}:{remaining_minutes:02d}"
+
+
+def validate_business_hour_time(
+    open_time: str,
+    close_time: str,
+    is_open: bool,
+):
+    parsed_open_time = time_to_minutes(open_time)
+    parsed_close_time = time_to_minutes(close_time)
+
+    if is_open and parsed_open_time >= parsed_close_time:
+        raise HTTPException(
+            status_code=400,
+            detail="O horário de abertura deve ser menor que o horário de fechamento.",
+        )
 
 
 # ==================================================
@@ -210,6 +305,282 @@ def create_unique_barbershop_slug(
         suffix += 1
 
     return slug
+
+
+# ==================================================
+# FUNÇÕES DE FUNCIONAMENTO / DISPONIBILIDADE
+# ==================================================
+
+def create_default_business_hours(
+    db: Session,
+    barbershop_id: str,
+):
+    existing_count = (
+        db.query(models.BusinessHour)
+        .filter(models.BusinessHour.barbershop_id == barbershop_id)
+        .count()
+    )
+
+    if existing_count > 0:
+        return
+
+    default_business_hours = [
+        models.BusinessHour(
+            barbershop_id=barbershop_id,
+            weekday=0,
+            is_open=True,
+            open_time="09:00",
+            close_time="18:00",
+        ),
+        models.BusinessHour(
+            barbershop_id=barbershop_id,
+            weekday=1,
+            is_open=True,
+            open_time="09:00",
+            close_time="18:00",
+        ),
+        models.BusinessHour(
+            barbershop_id=barbershop_id,
+            weekday=2,
+            is_open=True,
+            open_time="09:00",
+            close_time="18:00",
+        ),
+        models.BusinessHour(
+            barbershop_id=barbershop_id,
+            weekday=3,
+            is_open=True,
+            open_time="09:00",
+            close_time="18:00",
+        ),
+        models.BusinessHour(
+            barbershop_id=barbershop_id,
+            weekday=4,
+            is_open=True,
+            open_time="09:00",
+            close_time="18:00",
+        ),
+        models.BusinessHour(
+            barbershop_id=barbershop_id,
+            weekday=5,
+            is_open=True,
+            open_time="08:00",
+            close_time="14:00",
+        ),
+        models.BusinessHour(
+            barbershop_id=barbershop_id,
+            weekday=6,
+            is_open=False,
+            open_time="09:00",
+            close_time="18:00",
+        ),
+    ]
+
+    db.add_all(default_business_hours)
+
+
+def ensure_business_hours_exist(
+    db: Session,
+    barbershop_id: str,
+):
+    existing_count = (
+        db.query(models.BusinessHour)
+        .filter(models.BusinessHour.barbershop_id == barbershop_id)
+        .count()
+    )
+
+    if existing_count == 0:
+        create_default_business_hours(db, barbershop_id)
+        db.commit()
+
+
+def get_business_hour_for_date(
+    db: Session,
+    barbershop_id: str,
+    appointment_date: str,
+):
+    parsed_date = parse_date(appointment_date)
+    weekday = parsed_date.weekday()
+
+    ensure_business_hours_exist(db, barbershop_id)
+
+    business_hour = (
+        db.query(models.BusinessHour)
+        .filter(
+            models.BusinessHour.barbershop_id == barbershop_id,
+            models.BusinessHour.weekday == weekday,
+        )
+        .first()
+    )
+
+    if not business_hour:
+        raise HTTPException(
+            status_code=400,
+            detail="Horário de funcionamento não configurado para esse dia.",
+        )
+
+    return business_hour
+
+
+def has_time_conflict(
+    new_start: int,
+    new_end: int,
+    existing_start: int,
+    existing_end: int,
+):
+    return new_start < existing_end and new_end > existing_start
+
+
+def validate_appointment_inside_business_hours(
+    db: Session,
+    barbershop_id: str,
+    appointment_date: str,
+    appointment_time: str,
+    duration_minutes: int,
+):
+    business_hour = get_business_hour_for_date(
+        db=db,
+        barbershop_id=barbershop_id,
+        appointment_date=appointment_date,
+    )
+
+    if not business_hour.is_open:
+        raise HTTPException(
+            status_code=400,
+            detail="A barbearia está fechada nesse dia.",
+        )
+
+    appointment_start = time_to_minutes(appointment_time)
+    appointment_end = appointment_start + duration_minutes
+
+    open_time = time_to_minutes(business_hour.open_time)
+    close_time = time_to_minutes(business_hour.close_time)
+
+    if appointment_start < open_time or appointment_end > close_time:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Horário fora do funcionamento da barbearia. "
+                f"Funcionamento nesse dia: {business_hour.open_time} às {business_hour.close_time}. "
+                f"Esse serviço dura {duration_minutes} minutos."
+            ),
+        )
+
+
+def validate_professional_availability(
+    db: Session,
+    barbershop_id: str,
+    professional_id: int,
+    appointment_date: str,
+    appointment_time: str,
+    duration_minutes: int,
+    ignored_appointment_id: Optional[str] = None,
+):
+    new_start = time_to_minutes(appointment_time)
+    new_end = new_start + duration_minutes
+
+    query = (
+        db.query(models.Appointment)
+        .filter(
+            models.Appointment.barbershop_id == barbershop_id,
+            models.Appointment.professional_id == professional_id,
+            models.Appointment.date == appointment_date,
+            models.Appointment.status != "canceled",
+        )
+    )
+
+    if ignored_appointment_id:
+        query = query.filter(
+            models.Appointment.id != ignored_appointment_id
+        )
+
+    existing_appointments = query.all()
+
+    for existing_appointment in existing_appointments:
+        existing_start = time_to_minutes(existing_appointment.time)
+        existing_duration = existing_appointment.service_duration_minutes or 30
+        existing_end = existing_start + existing_duration
+
+        if has_time_conflict(
+            new_start=new_start,
+            new_end=new_end,
+            existing_start=existing_start,
+            existing_end=existing_end,
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Esse profissional já possui um agendamento "
+                    f"das {existing_appointment.time} às {minutes_to_time(existing_end)}. "
+                    "Escolha outro horário ou outro profissional."
+                ),
+            )
+
+
+def get_available_times_for_professional(
+    db: Session,
+    barbershop_id: str,
+    professional_id: int,
+    appointment_date: str,
+    duration_minutes: int,
+):
+    business_hour = get_business_hour_for_date(
+        db=db,
+        barbershop_id=barbershop_id,
+        appointment_date=appointment_date,
+    )
+
+    if not business_hour.is_open:
+        return []
+
+    open_time = time_to_minutes(business_hour.open_time)
+    close_time = time_to_minutes(business_hour.close_time)
+
+    existing_appointments = (
+        db.query(models.Appointment)
+        .filter(
+            models.Appointment.barbershop_id == barbershop_id,
+            models.Appointment.professional_id == professional_id,
+            models.Appointment.date == appointment_date,
+            models.Appointment.status != "canceled",
+        )
+        .all()
+    )
+
+    available_times = []
+
+    # Intervalo entre opções de horário.
+    # Exemplo: 09:00, 09:10, 09:20...
+    step_minutes = 10
+
+    current_time = open_time
+
+    while current_time + duration_minutes <= close_time:
+        current_start = current_time
+        current_end = current_start + duration_minutes
+
+        has_conflict_with_existing = False
+
+        for existing_appointment in existing_appointments:
+            existing_start = time_to_minutes(existing_appointment.time)
+            existing_duration = existing_appointment.service_duration_minutes or 30
+            existing_end = existing_start + existing_duration
+
+            if has_time_conflict(
+                new_start=current_start,
+                new_end=current_end,
+                existing_start=existing_start,
+                existing_end=existing_end,
+            ):
+                has_conflict_with_existing = True
+                break
+
+        if not has_conflict_with_existing:
+            available_times.append(minutes_to_time(current_start))
+
+        current_time += step_minutes
+
+    return available_times
 
 
 # ==================================================
@@ -329,6 +700,10 @@ def seed_initial_data():
 
             db.add(corte_fino)
             db.commit()
+            db.refresh(corte_fino)
+
+        ensure_business_hours_exist(db, toid.id)
+        ensure_business_hours_exist(db, corte_fino.id)
 
         services_count = (
             db.query(models.Service)
@@ -347,6 +722,7 @@ def seed_initial_data():
                     description=(
                         "Corte moderno com acabamento profissional."
                     ),
+                    duration_minutes=40,
                 ),
                 models.Service(
                     barbershop_id="barbearia-001",
@@ -355,6 +731,16 @@ def seed_initial_data():
                     description=(
                         "Modelagem e acabamento da barba."
                     ),
+                    duration_minutes=30,
+                ),
+                models.Service(
+                    barbershop_id="barbearia-001",
+                    name="Sobrancelha",
+                    price=15,
+                    description=(
+                        "Design e acabamento de sobrancelha."
+                    ),
+                    duration_minutes=20,
                 ),
                 models.Service(
                     barbershop_id="barbearia-001",
@@ -363,6 +749,7 @@ def seed_initial_data():
                     description=(
                         "Pacote completo para renovar o visual."
                     ),
+                    duration_minutes=60,
                 ),
             ]
 
@@ -478,6 +865,8 @@ def register_admin(
             new_barbershop,
             new_admin,
         ])
+
+        create_default_business_hours(db, barbershop_id)
 
         db.commit()
 
@@ -662,6 +1051,88 @@ def get_barbershop_professionals(
     ]
 
 
+@app.get("/barbershops/{slug}/business-hours")
+def get_public_business_hours(
+    slug: str,
+    db: Session = Depends(get_db),
+):
+    barbershop = get_barbershop_by_slug(
+        db,
+        slug,
+    )
+
+    ensure_business_hours_exist(db, barbershop.id)
+
+    business_hours = (
+        db.query(models.BusinessHour)
+        .filter(
+            models.BusinessHour.barbershop_id
+            == barbershop.id
+        )
+        .order_by(models.BusinessHour.weekday)
+        .all()
+    )
+
+    return [
+        format_business_hour(business_hour)
+        for business_hour in business_hours
+    ]
+
+
+@app.get("/barbershops/{slug}/available-times")
+def get_barbershop_available_times(
+    slug: str,
+    serviceId: int = Query(...),
+    professionalId: int = Query(...),
+    date: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    barbershop = get_barbershop_by_slug(
+        db,
+        slug,
+    )
+
+    selected_service = (
+        db.query(models.Service)
+        .filter(
+            models.Service.id == serviceId,
+            models.Service.barbershop_id == barbershop.id,
+        )
+        .first()
+    )
+
+    selected_professional = (
+        db.query(models.Professional)
+        .filter(
+            models.Professional.id == professionalId,
+            models.Professional.barbershop_id == barbershop.id,
+        )
+        .first()
+    )
+
+    if not selected_service:
+        raise HTTPException(
+            status_code=404,
+            detail="Serviço não encontrado nessa barbearia",
+        )
+
+    if not selected_professional:
+        raise HTTPException(
+            status_code=404,
+            detail="Profissional não encontrado nessa barbearia",
+        )
+
+    available_times = get_available_times_for_professional(
+        db=db,
+        barbershop_id=barbershop.id,
+        professional_id=selected_professional.id,
+        appointment_date=date,
+        duration_minutes=selected_service.duration_minutes or 30,
+    )
+
+    return available_times
+
+
 @app.get("/barbershops/{slug}/appointments")
 def get_barbershop_appointments(
     slug: str,
@@ -743,11 +1214,33 @@ def create_barbershop_appointment(
             ),
         )
 
+    service_duration_minutes = selected_service.duration_minutes or 30
+
+    validate_appointment_inside_business_hours(
+        db=db,
+        barbershop_id=barbershop.id,
+        appointment_date=appointment_data.date,
+        appointment_time=appointment_data.time,
+        duration_minutes=service_duration_minutes,
+    )
+
+    validate_professional_availability(
+        db=db,
+        barbershop_id=barbershop.id,
+        professional_id=selected_professional.id,
+        appointment_date=appointment_data.date,
+        appointment_time=appointment_data.time,
+        duration_minutes=service_duration_minutes,
+    )
+
     new_appointment = models.Appointment(
         id=str(uuid4()),
         barbershop_id=barbershop.id,
         client_name=appointment_data.clientName.strip(),
+        service_id=selected_service.id,
         service_name=selected_service.name,
+        service_duration_minutes=service_duration_minutes,
+        professional_id=selected_professional.id,
         professional_name=selected_professional.name,
         professional_specialty=(
             selected_professional.specialty
@@ -797,6 +1290,28 @@ def update_barbershop_appointment_status(
             detail="Agendamento não encontrado",
         )
 
+    if (
+        appointment.status == "canceled"
+        and status_data.status != "canceled"
+    ):
+        validate_appointment_inside_business_hours(
+            db=db,
+            barbershop_id=barbershop.id,
+            appointment_date=appointment.date,
+            appointment_time=appointment.time,
+            duration_minutes=appointment.service_duration_minutes,
+        )
+
+        validate_professional_availability(
+            db=db,
+            barbershop_id=barbershop.id,
+            professional_id=appointment.professional_id,
+            appointment_date=appointment.date,
+            appointment_time=appointment.time,
+            duration_minutes=appointment.service_duration_minutes,
+            ignored_appointment_id=appointment.id,
+        )
+
     appointment.status = status_data.status
 
     db.commit()
@@ -841,6 +1356,112 @@ def get_admin_profile(
 
 
 # ==================================================
+# ADMIN — FUNCIONAMENTO
+# ==================================================
+
+@app.get("/admin/business-hours")
+def get_admin_business_hours(
+    current_admin: models.Admin = Depends(
+        get_current_admin
+    ),
+    db: Session = Depends(get_db),
+):
+    ensure_business_hours_exist(
+        db,
+        current_admin.barbershop_id,
+    )
+
+    business_hours = (
+        db.query(models.BusinessHour)
+        .filter(
+            models.BusinessHour.barbershop_id
+            == current_admin.barbershop_id
+        )
+        .order_by(models.BusinessHour.weekday)
+        .all()
+    )
+
+    return [
+        format_business_hour(business_hour)
+        for business_hour in business_hours
+    ]
+
+
+@app.put("/admin/business-hours")
+def update_admin_business_hours(
+    business_hours_data: BusinessHoursUpdate,
+    current_admin: models.Admin = Depends(
+        get_current_admin
+    ),
+    db: Session = Depends(get_db),
+):
+    ensure_business_hours_exist(
+        db,
+        current_admin.barbershop_id,
+    )
+
+    received_weekdays = set()
+
+    for business_hour_data in business_hours_data.businessHours:
+        if business_hour_data.weekday in received_weekdays:
+            raise HTTPException(
+                status_code=400,
+                detail="Existem dias da semana repetidos na configuração.",
+            )
+
+        received_weekdays.add(business_hour_data.weekday)
+
+        validate_business_hour_time(
+            business_hour_data.openTime,
+            business_hour_data.closeTime,
+            business_hour_data.isOpen,
+        )
+
+        business_hour = (
+            db.query(models.BusinessHour)
+            .filter(
+                models.BusinessHour.barbershop_id
+                == current_admin.barbershop_id,
+                models.BusinessHour.weekday
+                == business_hour_data.weekday,
+            )
+            .first()
+        )
+
+        if not business_hour:
+            business_hour = models.BusinessHour(
+                barbershop_id=current_admin.barbershop_id,
+                weekday=business_hour_data.weekday,
+                is_open=business_hour_data.isOpen,
+                open_time=business_hour_data.openTime,
+                close_time=business_hour_data.closeTime,
+            )
+
+            db.add(business_hour)
+        else:
+            business_hour.is_open = business_hour_data.isOpen
+            business_hour.open_time = business_hour_data.openTime
+            business_hour.close_time = business_hour_data.closeTime
+
+    db.commit()
+
+    updated_business_hours = (
+        db.query(models.BusinessHour)
+        .filter(
+            models.BusinessHour.barbershop_id
+            == current_admin.barbershop_id
+        )
+        .order_by(models.BusinessHour.weekday)
+        .all()
+    )
+
+    return [
+        format_business_hour(business_hour)
+        for business_hour in updated_business_hours
+    ]
+
+
+# ==================================================
 # ADMIN — SERVIÇOS
 # ==================================================
 
@@ -880,6 +1501,7 @@ def create_admin_service(
         name=service_data.name.strip(),
         price=service_data.price,
         description=service_data.description.strip(),
+        duration_minutes=service_data.durationMinutes,
     )
 
     db.add(new_service)
@@ -919,6 +1541,7 @@ def update_admin_service(
     service.description = (
         service_data.description.strip()
     )
+    service.duration_minutes = service_data.durationMinutes
 
     db.commit()
     db.refresh(service)
@@ -955,4 +1578,118 @@ def delete_admin_service(
 
     return {
         "message": "Serviço excluído com sucesso"
+    }
+
+
+# ==================================================
+# ADMIN — PROFISSIONAIS / FUNCIONÁRIOS
+# ==================================================
+
+@app.get("/admin/professionals")
+def get_admin_professionals(
+    current_admin: models.Admin = Depends(
+        get_current_admin
+    ),
+    db: Session = Depends(get_db),
+):
+    professionals = (
+        db.query(models.Professional)
+        .filter(
+            models.Professional.barbershop_id
+            == current_admin.barbershop_id
+        )
+        .order_by(models.Professional.name)
+        .all()
+    )
+
+    return [
+        format_professional(professional)
+        for professional in professionals
+    ]
+
+
+@app.post("/admin/professionals", status_code=201)
+def create_admin_professional(
+    professional_data: ProfessionalCreate,
+    current_admin: models.Admin = Depends(
+        get_current_admin
+    ),
+    db: Session = Depends(get_db),
+):
+    new_professional = models.Professional(
+        barbershop_id=current_admin.barbershop_id,
+        name=professional_data.name.strip(),
+        specialty=professional_data.specialty.strip(),
+    )
+
+    db.add(new_professional)
+    db.commit()
+    db.refresh(new_professional)
+
+    return format_professional(new_professional)
+
+
+@app.put("/admin/professionals/{professional_id}")
+def update_admin_professional(
+    professional_id: int,
+    professional_data: ProfessionalUpdate,
+    current_admin: models.Admin = Depends(
+        get_current_admin
+    ),
+    db: Session = Depends(get_db),
+):
+    professional = (
+        db.query(models.Professional)
+        .filter(
+            models.Professional.id == professional_id,
+            models.Professional.barbershop_id
+            == current_admin.barbershop_id,
+        )
+        .first()
+    )
+
+    if not professional:
+        raise HTTPException(
+            status_code=404,
+            detail="Profissional não encontrado",
+        )
+
+    professional.name = professional_data.name.strip()
+    professional.specialty = professional_data.specialty.strip()
+
+    db.commit()
+    db.refresh(professional)
+
+    return format_professional(professional)
+
+
+@app.delete("/admin/professionals/{professional_id}")
+def delete_admin_professional(
+    professional_id: int,
+    current_admin: models.Admin = Depends(
+        get_current_admin
+    ),
+    db: Session = Depends(get_db),
+):
+    professional = (
+        db.query(models.Professional)
+        .filter(
+            models.Professional.id == professional_id,
+            models.Professional.barbershop_id
+            == current_admin.barbershop_id,
+        )
+        .first()
+    )
+
+    if not professional:
+        raise HTTPException(
+            status_code=404,
+            detail="Profissional não encontrado",
+        )
+
+    db.delete(professional)
+    db.commit()
+
+    return {
+        "message": "Profissional excluído com sucesso"
     }

@@ -9,6 +9,9 @@ import Admin from "./pages/Admin";
 import AdminDia from "./pages/AdminDia";
 import AdminLogin from "./pages/AdminLogin";
 import AdminRegister from "./pages/AdminRegister";
+import AdminServices from "./pages/AdminServices";
+import AdminProfessionals from "./pages/AdminProfessionals";
+import AdminFuncionamento from "./pages/AdminFuncionamento";
 
 function App() {
   const location = useLocation();
@@ -23,9 +26,14 @@ function App() {
         <Route path="/" element={<Home />} />
 
         <Route
-          path="/agendamento"
-          element={<Agendamentos />}
-        />
+  path="/agendamento"
+  element={<Agendamentos />}
+/>
+
+<Route
+  path="/:slug/agendamento"
+  element={<Agendamentos />}
+/>
 
         <Route
           path="/admin/login"
@@ -51,9 +59,37 @@ function App() {
         />
 
         <Route
+  path="/admin/servicos"
+  element={
+    <ProtectedRoute>
+      <AdminServices />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/admin/funcionarios"
+  element={
+    <ProtectedRoute>
+      <AdminProfessionals />
+    </ProtectedRoute>
+  }
+/>
+
+        <Route
   path="/admin/cadastro"
   element={<AdminRegister />}
 />
+
+<Route
+  path="/admin/funcionamento"
+  element={
+    <ProtectedRoute>
+      <AdminFuncionamento />
+    </ProtectedRoute>
+  }
+/>
+
       </Routes>
     </>
   );

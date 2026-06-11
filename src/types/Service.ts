@@ -1,6 +1,8 @@
-export type Service ={
-    id: number;
-    name: string;
-    price: number;
-    description: string;
+export type Service = {
+  id: number;
+  barbershopId: string;
+  name: string;
+  price: number;
+  description: string;
+  durationMinutes: number;
 };
