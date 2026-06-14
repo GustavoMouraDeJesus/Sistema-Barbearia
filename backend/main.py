@@ -1,3 +1,4 @@
+import os
 import re
 import unicodedata
 
@@ -38,7 +39,7 @@ app.mount(
     name="uploads",
 )
 
-SECRET_KEY = "troque-essa-chave-por-uma-chave-segura"
+SECRET_KEY = os.getenv("SECRET_KEY", "troque-essa-chave-por-uma-chave-segura")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440
 
@@ -51,12 +52,25 @@ security = HTTPBearer()
 
 Base.metadata.create_all(bind=engine)
 
+frontend_urls = os.getenv("FRONTEND_URLS", "")
+
+allowed_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+if frontend_urls:
+    allowed_origins.extend(
+        [
+            url.strip()
+            for url in frontend_urls.split(",")
+            if url.strip()
+        ]
+    )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
