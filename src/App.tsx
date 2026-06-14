@@ -14,7 +14,6 @@ import AdminProfessionals from "./pages/AdminProfessionals";
 import AdminFuncionamento from "./pages/AdminFuncionamento";
 import AdminAparencia from "./pages/AdminAparencia";
 import AdminGaleria from "./pages/AdminGaleria";
-<Route path="/:slug" element={<Home />} />
 
 function App() {
   const location = useLocation();
@@ -26,38 +25,14 @@ function App() {
       {!isAdminPage && <NavBar />}
 
       <Routes>
-
         <Route path="/" element={<Home />} />
+        <Route path="/:slug" element={<Home />} />
 
-  <Route path="/:slug" element={<Home />} />
+        <Route path="/agendamento" element={<Agendamentos />} />
+        <Route path="/:slug/agendamento" element={<Agendamentos />} />
 
-  <Route
-    path="/agendamento"
-    element={<Agendamentos />}
-  />
-
-  <Route
-    path="/:slug/agendamento"
-    element={<Agendamentos />}
-  />
-
-
-        <Route path="/" element={<Home />} />
-
-        <Route
-  path="/agendamento"
-  element={<Agendamentos />}
-/>
-
-<Route
-  path="/:slug/agendamento"
-  element={<Agendamentos />}
-/>
-
-        <Route
-          path="/admin/login"
-          element={<AdminLogin />}
-        />
+        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/admin/cadastro" element={<AdminRegister />} />
 
         <Route
           path="/admin"
@@ -78,55 +53,49 @@ function App() {
         />
 
         <Route
-  path="/admin/servicos"
-  element={
-    <ProtectedRoute>
-      <AdminServices />
-    </ProtectedRoute>
-  }
-/>
-
-<Route
-  path="/admin/funcionarios"
-  element={
-    <ProtectedRoute>
-      <AdminProfessionals />
-    </ProtectedRoute>
-  }
-/>
+          path="/admin/servicos"
+          element={
+            <ProtectedRoute>
+              <AdminServices />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
-  path="/admin/cadastro"
-  element={<AdminRegister />}
-/>
+          path="/admin/funcionarios"
+          element={
+            <ProtectedRoute>
+              <AdminProfessionals />
+            </ProtectedRoute>
+          }
+        />
 
-<Route
-  path="/admin/funcionamento"
-  element={
-    <ProtectedRoute>
-      <AdminFuncionamento />
-    </ProtectedRoute>
-  }
-/>
+        <Route
+          path="/admin/funcionamento"
+          element={
+            <ProtectedRoute>
+              <AdminFuncionamento />
+            </ProtectedRoute>
+          }
+        />
 
-<Route
-  path="/admin/aparencia"
-  element={
-    <ProtectedRoute>
-      <AdminAparencia />
-    </ProtectedRoute>
-  }
-/>
+        <Route
+          path="/admin/aparencia"
+          element={
+            <ProtectedRoute>
+              <AdminAparencia />
+            </ProtectedRoute>
+          }
+        />
 
-<Route
-  path="/admin/galeria"
-  element={
-    <ProtectedRoute>
-      <AdminGaleria />
-    </ProtectedRoute>
-  }
-/>
-
+        <Route
+          path="/admin/galeria"
+          element={
+            <ProtectedRoute>
+              <AdminGaleria />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </>
   );

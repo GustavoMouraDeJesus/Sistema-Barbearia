@@ -1,5 +1,51 @@
 import { Link, useLocation } from "react-router-dom";
 
+type StoredBarbershop = {
+  id?: string;
+  name?: string;
+  slug?: string;
+};
+
+function getStoredBarbershopSlug() {
+  const directSlug = localStorage.getItem("barbershopSlug");
+
+  if (directSlug) {
+    return directSlug;
+  }
+
+  const storedBarbershop = localStorage.getItem("barbershop");
+
+  if (storedBarbershop) {
+    try {
+      const barbershop = JSON.parse(storedBarbershop) as StoredBarbershop;
+
+      if (barbershop.slug) {
+        return barbershop.slug;
+      }
+    } catch {
+      console.error("Não foi possível ler os dados da barbearia.");
+    }
+  }
+
+  const storedAdmin = localStorage.getItem("admin");
+
+  if (storedAdmin) {
+    try {
+      const admin = JSON.parse(storedAdmin) as {
+        barbershopSlug?: string;
+      };
+
+      if (admin.barbershopSlug) {
+        return admin.barbershopSlug;
+      }
+    } catch {
+      console.error("Não foi possível ler os dados do administrador.");
+    }
+  }
+
+  return null;
+}
+
 function getBarbershopSlugFromPath(pathname: string) {
   const parts = pathname.split("/").filter(Boolean);
 
@@ -21,7 +67,10 @@ function getBarbershopSlugFromPath(pathname: string) {
 export default function NavBar() {
   const location = useLocation();
 
-  const barbershopSlug = getBarbershopSlugFromPath(location.pathname);
+  const slugFromUrl = getBarbershopSlugFromPath(location.pathname);
+  const slugFromStorage = getStoredBarbershopSlug();
+
+  const barbershopSlug = slugFromUrl || slugFromStorage;
 
   const homeLink = barbershopSlug ? `/${barbershopSlug}` : "/";
 
@@ -44,7 +93,6 @@ export default function NavBar() {
   return (
     <nav className="fixed top-0 left-0 z-50 w-full bg-black/80 backdrop-blur-md border-b border-zinc-800">
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-
         <Link
           to={homeLink}
           className="text-2xl font-bold tracking-wider text-white"
@@ -78,7 +126,6 @@ export default function NavBar() {
         >
           AGENDAR HORÁRIO
         </Link>
-
       </div>
     </nav>
   );

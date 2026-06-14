@@ -20,10 +20,60 @@ type ApiErrorResponse = {
   detail?: string | { msg?: string }[];
 };
 
+type StoredBarbershop = {
+  id?: string;
+  name?: string;
+  slug?: string;
+};
+
+function getStoredBarbershopSlug() {
+  const directSlug = localStorage.getItem("barbershopSlug");
+
+  if (directSlug) {
+    return directSlug;
+  }
+
+  const storedBarbershop = localStorage.getItem("barbershop");
+
+  if (storedBarbershop) {
+    try {
+      const barbershop = JSON.parse(storedBarbershop) as StoredBarbershop;
+
+      if (barbershop.slug) {
+        return barbershop.slug;
+      }
+    } catch {
+      console.error("Não foi possível ler os dados da barbearia.");
+    }
+  }
+
+  const storedAdmin = localStorage.getItem("admin");
+
+  if (storedAdmin) {
+    try {
+      const admin = JSON.parse(storedAdmin) as {
+        barbershopSlug?: string;
+      };
+
+      if (admin.barbershopSlug) {
+        return admin.barbershopSlug;
+      }
+    } catch {
+      console.error("Não foi possível ler os dados do administrador.");
+    }
+  }
+
+  return null;
+}
+
 export default function Agendamentos() {
   const { slug } = useParams();
 
-  const barbershopSlug = slug || "toid";
+  const storedBarbershopSlug = useMemo(() => {
+    return getStoredBarbershopSlug();
+  }, []);
+
+  const barbershopSlug = slug || storedBarbershopSlug;
 
   const today = useMemo(() => {
     return new Date().toISOString().split("T")[0];
@@ -53,6 +103,14 @@ export default function Agendamentos() {
 
   useEffect(() => {
     async function loadData() {
+      if (!barbershopSlug) {
+        setLoadingData(false);
+        setErrorMessage(
+          "Não foi possível identificar a barbearia. Acesse pelo link da sua barbearia ou faça login novamente."
+        );
+        return;
+      }
+
       try {
         setLoadingData(true);
         setErrorMessage("");
@@ -101,6 +159,7 @@ export default function Agendamentos() {
   useEffect(() => {
     async function loadAvailableTimes() {
       if (
+        !barbershopSlug ||
         !formData.serviceId ||
         !formData.professionalId ||
         !formData.date
@@ -229,6 +288,13 @@ export default function Agendamentos() {
     setSuccessMessage("");
     setConfirmed(false);
 
+    if (!barbershopSlug) {
+      setErrorMessage(
+        "Não foi possível identificar a barbearia. Acesse pelo link correto da barbearia."
+      );
+      return;
+    }
+
     if (
       !formData.clientName ||
       !formData.clientPhone ||
@@ -326,7 +392,7 @@ export default function Agendamentos() {
           </p>
 
           <p className="text-zinc-500 mt-2 text-sm">
-            Barbearia: {barbershop?.name || barbershopSlug}
+            Barbearia: {barbershop?.name || barbershopSlug || "Não identificada"}
           </p>
 
           {(barbershop?.address ||
