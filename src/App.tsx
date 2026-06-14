@@ -14,6 +14,7 @@ import AdminProfessionals from "./pages/AdminProfessionals";
 import AdminFuncionamento from "./pages/AdminFuncionamento";
 import AdminAparencia from "./pages/AdminAparencia";
 import AdminGaleria from "./pages/AdminGaleria";
+<Route path="/:slug" element={<Home />} />
 
 function App() {
   const location = useLocation();
@@ -25,6 +26,22 @@ function App() {
       {!isAdminPage && <NavBar />}
 
       <Routes>
+
+        <Route path="/" element={<Home />} />
+
+  <Route path="/:slug" element={<Home />} />
+
+  <Route
+    path="/agendamento"
+    element={<Agendamentos />}
+  />
+
+  <Route
+    path="/:slug/agendamento"
+    element={<Agendamentos />}
+  />
+
+
         <Route path="/" element={<Home />} />
 
         <Route
