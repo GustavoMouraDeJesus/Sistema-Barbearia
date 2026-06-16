@@ -262,6 +262,15 @@ export default function Footer() {
                   Agendamento
                 </Link>
               </li>
+
+              <li>
+                <Link
+                  to="/admin/login"
+                  className="hover:text-white transition"
+                >
+                  Área administrativa
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -338,8 +347,6 @@ export default function Footer() {
             <h3 className="text-2xl font-bold mt-3">
               Gustavo Moura
             </h3>
-
-            
 
             <div className="flex flex-wrap gap-3 mt-6">
               <a
